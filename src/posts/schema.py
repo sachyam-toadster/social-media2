@@ -1,11 +1,22 @@
 from pydantic import BaseModel
 from uuid import UUID
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
+from enum import Enum
+
+class MediaType(str, Enum):
+    image = "image"
+    video = "video"
+
+class MediaCreate(BaseModel):
+    media_url: str
+    media_type: MediaType
+    media_order: int
+    
 
 class PostCreate(BaseModel):
     caption: Optional[str] = None
-    media_url: str
+    media: List[MediaCreate]
     is_reel: bool = False
 
 class PostRead(BaseModel):
