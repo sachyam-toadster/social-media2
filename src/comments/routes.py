@@ -57,3 +57,28 @@ async def get_replies(comment_id: uuid.UUID, db: AsyncSession = Depends(get_sess
 
     result = await db.exec(statement)
     return result.all()
+
+@comment_router.delete("/comments/{comment_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_comment(comment_id: uuid.UUID,db: Session = Depends(get_session),current_user: User = Depends(get_current_user),):
+    result = await db.execute(
+        select(Comment).where(Comment.id == comment_id)
+    )
+    comment = result.scalar_one_or_none()
+
+    if not comment:
+        raise HTTPException(status_code=404, detail="Comment not found")
+
+    if comment.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not allowed")
+
+    # delete replies first
+    replies_result = await db.execute(
+        select(Comment).where(Comment.parent_comment_id == comment_id)
+    )
+    replies = replies_result.scalars().all()
+
+    for reply in replies:
+        await db.delete(reply)
+
+    await db.delete(comment)
+    await db.commit()
