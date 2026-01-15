@@ -93,10 +93,53 @@ class Follow(SQLModel, table=True):
         )
     )
 
-    follower_id: uuid.UUID = Field(foreign_key="user_accounts.id", nullable=False, index=True)
-    following_id: uuid.UUID = Field(foreign_key="user_accounts.id", nullable=False, index=True)
+    follower_id: uuid.UUID = Field(foreign_key="user_accounts.id", nullable=False)
+    following_id: uuid.UUID = Field(foreign_key="user_accounts.id", nullable=False)
     created_at: datetime = Field(sa_column=Column(DateTime(timezone=True), server_default=func.now()))
     updated_at: datetime = Field(sa_column=Column(DateTime(timezone=True), server_default=func.now(), nullable=False))
 
     follower: "User" = Relationship(back_populates="following", sa_relationship_kwargs={"foreign_keys": "[Follow.follower_id]"},)
     followed: "User" = Relationship(back_populates="followers", sa_relationship_kwargs={"foreign_keys": "[Follow.following_id]"},)
+
+
+class Comment(SQLModel, table=True):
+    __tablename__ = "comments"
+
+    id: uuid.UUID = Field(
+        sa_column=Column(
+            pg.UUID,
+            primary_key=True,
+            default=uuid.uuid4,
+            nullable=False,
+        )
+    )
+
+    post_id: uuid.UUID = Field(foreign_key="posts.id")
+    user_id: uuid.UUID = Field(foreign_key="user_accounts.id")
+    parent_comment_id: uuid.UUID | None = Field(default=None, foreign_key="comments.id")
+    content: str
+    created_at: datetime = Field(sa_column=Column(DateTime(timezone=True), server_default=func.now()))
+    updated_at: datetime = Field(sa_column=Column(DateTime(timezone=True), server_default=func.now(), nullable=False))
+
+
+# class PostLike(SQLModel, table=True):
+#     __tablename__ = "post_likes"
+
+#     id: uuid.UUID = Field(
+#         sa_column=Column(
+#             pg.UUID,
+#             primary_key=True,
+#             default=uuid.uuid4,
+#             nullable=False,
+#         )
+#     )
+
+#     user_id: uuid.UUID = Field(foreign_key="user_accounts.id", nullable=False)
+#     post_id: uuid.UUID = Field(foreign_key="posts.id", nullable=False)
+
+#     created_at: datetime = Field(sa_column=Column(DateTime(timezone=True), server_default=func.now()))
+
+#     __table_args__ = (
+#         # prevents duplicate likes
+#         {"sqlite_autoincrement": True},
+#     )

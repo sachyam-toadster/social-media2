@@ -2,6 +2,7 @@ from fastapi import FastAPI,APIRouter
 from src.auth.routes import auth_router
 from src.posts.routes import post_router
 from src.follows.routes import follow_router
+from src.comments.routes import comment_router
 
 app = FastAPI()
 
@@ -25,4 +26,8 @@ app.include_router(
     follow_router,
     tags=["follow"]
 
+)
+app.include_router(
+    comment_router,
+    tags=["comments"]
 )
