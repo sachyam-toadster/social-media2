@@ -4,6 +4,7 @@ from typing import List, Optional
 from sqlmodel import SQLModel, Field, Relationship
 from sqlalchemy import Column, DateTime, func, UniqueConstraint
 import sqlalchemy.dialects.postgresql as pg
+from .Enums import LikeTarget
 
 
 class User(SQLModel, table=True):
@@ -122,24 +123,26 @@ class Comment(SQLModel, table=True):
     updated_at: datetime = Field(sa_column=Column(DateTime(timezone=True), server_default=func.now(), nullable=False))
 
 
-# class PostLike(SQLModel, table=True):
-#     __tablename__ = "post_likes"
+class Like(SQLModel, table=True):
+    __tablename__ = "likes"
 
-#     id: uuid.UUID = Field(
-#         sa_column=Column(
-#             pg.UUID,
-#             primary_key=True,
-#             default=uuid.uuid4,
-#             nullable=False,
-#         )
-#     )
+    id: uuid.UUID = Field(
+        sa_column=Column(
+            pg.UUID(as_uuid=True),
+            primary_key=True,
+            default=uuid.uuid4,
+            nullable=False,
+        )
+    )
 
-#     user_id: uuid.UUID = Field(foreign_key="user_accounts.id", nullable=False)
-#     post_id: uuid.UUID = Field(foreign_key="posts.id", nullable=False)
+    user_id: uuid.UUID = Field(foreign_key="user_accounts.id", nullable=False)
+    target_id: uuid.UUID = Field(nullable=False )
+    target_type: LikeTarget = Field(sa_column=Column(pg.ENUM(LikeTarget, name="like_target_enum"), nullable=False))
 
-#     created_at: datetime = Field(sa_column=Column(DateTime(timezone=True), server_default=func.now()))
+    created_at: datetime = Field(sa_column=Column(DateTime(timezone=True), server_default=func.now()))
 
-#     __table_args__ = (
-#         # prevents duplicate likes
-#         {"sqlite_autoincrement": True},
-#     )
+    __table_args__ = (
+        # prevents duplicate likes
+        {"sqlite_autoincrement": True},
+    )
+

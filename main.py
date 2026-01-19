@@ -3,6 +3,7 @@ from src.auth.routes import auth_router
 from src.posts.routes import post_router
 from src.follows.routes import follow_router
 from src.comments.routes import comment_router
+from src.likes.routes import like_router
 
 app = FastAPI()
 
@@ -30,4 +31,9 @@ app.include_router(
 app.include_router(
     comment_router,
     tags=["comments"]
+)
+
+app.include_router(
+    like_router,
+    tags=["like"]
 )
