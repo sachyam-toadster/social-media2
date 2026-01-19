@@ -4,6 +4,8 @@ from src.posts.routes import post_router
 from src.follows.routes import follow_router
 from src.comments.routes import comment_router
 from src.likes.routes import like_router
+from src.conversations.routes import conversation_router
+from src.messages.routes import message_router
 
 app = FastAPI()
 
@@ -36,4 +38,12 @@ app.include_router(
 app.include_router(
     like_router,
     tags=["like"]
+)
+
+app.include_router(
+    conversation_router,
+)
+
+app.include_router(
+    message_router
 )

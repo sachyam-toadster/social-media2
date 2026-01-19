@@ -1,10 +1,10 @@
 from datetime import datetime
 import uuid
 from typing import List, Optional
-from sqlmodel import SQLModel, Field, Relationship
-from sqlalchemy import Column, DateTime, func, UniqueConstraint
+from sqlmodel import SQLModel, Field, Relationship, PrimaryKeyConstraint
+from sqlalchemy import Column, DateTime, func, UniqueConstraint, Boolean
 import sqlalchemy.dialects.postgresql as pg
-from .Enums import LikeTarget
+from .Enums import LikeTarget, MessageType
 
 
 class User(SQLModel, table=True):
@@ -146,3 +146,70 @@ class Like(SQLModel, table=True):
         {"sqlite_autoincrement": True},
     )
 
+class Conversation(SQLModel, table=True):
+    __tablename__ = "conversations"
+
+    id: uuid.UUID = Field(
+        sa_column=Column(
+            pg.UUID,
+            primary_key=True,
+            default=uuid.uuid4,
+            nullable=False,
+        )
+    )
+
+    is_group: bool = Field(nullable=False, default=False)
+    created_at: datetime = Field(sa_column=Column(DateTime(timezone=True), server_default=func.now()))
+    last_message_at: datetime | None = Field(sa_column=Column(DateTime(timezone=True)))
+    members: list["ConversationMember"] = Relationship(back_populates="conversation")
+    messages: list["Message"] = Relationship(back_populates="conversation")
+
+
+class ConversationMember(SQLModel, table=True):
+    __tablename__ = "conversation_members"
+    __table_args__ = (
+        UniqueConstraint(
+            "conversation_id",
+            "user_id",
+            name="uq_conversation_user",
+        ),
+    )
+
+    id: uuid.UUID = Field(
+        sa_column=Column(
+            pg.UUID,
+            primary_key=True,
+            default=uuid.uuid4,
+            nullable=False,
+        )
+    )
+
+    conversation_id: uuid.UUID = Field(foreign_key="conversations.id",nullable=False,)
+    user_id: uuid.UUID = Field(foreign_key="user_accounts.id",nullable=False,)
+    joined_at: datetime = Field(sa_column=Column( DateTime(timezone=True), server_default=func.now(), nullable=False,))
+
+    conversation: "Conversation" = Relationship(back_populates="members")
+    user: "User" = Relationship()
+
+
+class Message(SQLModel, table=True):
+    __tablename__ = "messages"
+
+    id: uuid.UUID = Field(
+        sa_column=Column(
+            pg.UUID,
+            primary_key=True,
+            default=uuid.uuid4,
+            nullable=False,
+        )
+    )
+
+    conversation_id: uuid.UUID = Field(foreign_key="conversations.id",nullable=False,)
+    sender_id: uuid.UUID = Field(foreign_key="user_accounts.id",nullable=False,)
+    content: str | None = Field(default=None)
+    media_url: str | None = Field(default=None)
+    message_type: MessageType = Field(sa_column=Column(pg.ENUM(MessageType, name="message_type_enum"),nullable=False,))
+    created_at: datetime = Field(sa_column=Column(DateTime(timezone=True),server_default=func.now(),nullable=False,))
+
+    conversation: "Conversation" = Relationship(back_populates="messages")
+    sender: "User" = Relationship()
