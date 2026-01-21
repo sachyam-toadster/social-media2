@@ -56,8 +56,8 @@ class Post(SQLModel, table=True):
     user: User = Relationship(back_populates="posts")
     is_reel:  bool = Field(sa_column=Column(pg.BOOLEAN, server_default="false"))
     created_at: datetime = Field(sa_column=Column(DateTime(timezone=True), server_default=func.now(), nullable=False))
-    updated_at: datetime = Field(sa_column=Column(DateTime(timezone=True), server_default=func.now(), nullable=False))
-    media: List["Media"] = Relationship(back_populates="post")
+    updated_at: datetime = Field(sa_column=Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False))
+    media: List["Media"] = Relationship(back_populates="post",sa_relationship_kwargs={"passive_deletes": True})
 
 
 class Media(SQLModel, table=True):
@@ -76,7 +76,7 @@ class Media(SQLModel, table=True):
     media_url: str
     media_order: int = Field(sa_column=Column(pg.INTEGER, nullable=False))
     media_type: str = Field(sa_column=Column(pg.VARCHAR, nullable=False))
-    post_id: uuid.UUID = Field(foreign_key="posts.id", nullable=False)
+    post_id: uuid.UUID = Field(foreign_key="posts.id", nullable=False, ondelete="CASCADE")
     created_at: datetime = Field(sa_column=Column(DateTime(timezone=True), server_default=func.now(), nullable=False))
     updated_at: datetime = Field(sa_column=Column(pg.TIMESTAMP, default=datetime.now)) 
     post: Optional["Post"] = Relationship(back_populates="media")
@@ -115,7 +115,7 @@ class Comment(SQLModel, table=True):
         )
     )
 
-    post_id: uuid.UUID = Field(foreign_key="posts.id")
+    post_id: uuid.UUID = Field(foreign_key="posts.id", ondelete="CASCADE")
     user_id: uuid.UUID = Field(foreign_key="user_accounts.id")
     parent_comment_id: uuid.UUID | None = Field(default=None, foreign_key="comments.id")
     content: str
@@ -213,3 +213,22 @@ class Message(SQLModel, table=True):
 
     conversation: "Conversation" = Relationship(back_populates="messages")
     sender: "User" = Relationship()
+
+class Media_User_tag(SQLModel, table=True):
+    __tablename__="media_user_tag"
+
+    id: uuid.UUID = Field(
+        sa_column=Column(
+            pg.UUID,
+            primary_key=True,
+            default=uuid.uuid4,
+            nullable=False,
+        )
+    )
+    
+    tagged_user_id: uuid.UUID = Field(foreign_key="user_accounts.id", nullable=False,)
+    tagged_by_user: uuid.UUID = Field(foreign_key = "user_accounts.id", nullable=False)
+    media_id: uuid.UUID = Field(foreign_key="media.id", nullable=False)
+    created_at: datetime = Field(sa_column=Column(DateTime(timezone=True),server_default=func.now(),nullable=False,))
+    updated_at: datetime = Field(sa_column=Column(DateTime(timezone=True), server_default=func.now(), nullable=False))
+    

@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import List
 from fastapi import Depends, HTTPException, Request, status, APIRouter
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -7,13 +8,14 @@ from sqlalchemy.exc import SQLAlchemyError
 from src.auth.dependency import get_current_user
 from src.db.base import get_session
 from src.db.models import Follow, User
+from .schema import FollowUserResponse, FollowerResponse
 import uuid
 
 
 
 follow_router = APIRouter()
 
-@follow_router.post("/users/{user_id}/follow", status_code=201)
+@follow_router.post("/users/{user_id}/follow",status_code=201)
 async def follow_user(user_id: uuid.UUID, current_user: dict = Depends(get_current_user), session: AsyncSession = Depends(get_session),):
     if user_id == current_user.id:
         raise HTTPException(400, "You cannot follow yourself")
@@ -55,7 +57,7 @@ async def unfollow_user(user_id: uuid.UUID, current_user: dict = Depends(get_cur
     return {"message": "User unfollowed successfully"}
 
 
-@follow_router.get("/users/{user_id}/followers")
+@follow_router.get("/users/{user_id}/followers", response_model=List[FollowerResponse])
 async def get_followers(user_id: uuid.UUID, session: AsyncSession = Depends(get_session),):
     stmt = (
         select(User)

@@ -1,46 +1,54 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import  select
-from datetime import datetime
 import uuid
 
 from sqlmodel.ext.asyncio.session import AsyncSession
 from src.db.base import get_session
-from src.db.models import Conversation, ConversationMember, Message
+from src.db.models import Conversation, ConversationMember
 from src.auth.dependency import get_current_user
 from src.db.models import User
 
-conversation_router = APIRouter(prefix="/conversations", tags=["Conversations"])
+conversation_router = APIRouter(prefix="/conversations", tags=["convo"])
 
 @conversation_router.post("/", status_code=status.HTTP_201_CREATED)
 async def create_conversation(
     is_group: bool = False,
-    member_ids: list[uuid.UUID] = [],
+    member_ids: list[uuid.UUID] | None=None,
     Asyncsession: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
+    member_ids = member_ids or []
+    member_ids = list(set(member_ids) - {current_user.id})
+
+    if not is_group:
+        if len(member_ids) != 1:
+            raise HTTPException(
+                status_code=400,
+                detail="one-to-one chat must have exactly one other user"
+            )
+    else:
+        if len(member_ids) < 2:
+            raise HTTPException(
+                status_code=400,
+                detail="Group chat must have at least 2 members"
+            )
+        
     conversation = Conversation(is_group=is_group)
     Asyncsession.add(conversation)
-    await Asyncsession.commit()
-    await Asyncsession.refresh(conversation)
+    await Asyncsession.flush()
 
-    # add creator
-    Asyncsession.add(
+    all_user_ids = member_ids + [current_user.id]
+    members = [
         ConversationMember(
             conversation_id=conversation.id,
-            user_id=current_user.id,
+            user_id=user_id
         )
-    )
+        for user_id in all_user_ids
+    ]
 
-    # add other members
-    for user_id in member_ids:
-        Asyncsession.add(
-            ConversationMember(
-                conversation_id=conversation.id,
-                user_id=user_id,
-            )
-        )
-
+    Asyncsession.add_all(members)
     await Asyncsession.commit()
+
     return conversation
 
 
@@ -73,9 +81,9 @@ async def add_member(
 
     session.add(member)
     try:
-        session.commit()
+        await session.commit()
     except Exception:
-        session.rollback()
+        await session.rollback()
         raise HTTPException(
             status_code=400,
             detail="User already in conversation",

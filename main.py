@@ -6,6 +6,7 @@ from src.comments.routes import comment_router
 from src.likes.routes import like_router
 from src.conversations.routes import conversation_router
 from src.messages.routes import message_router
+from src.tag.routes import tag_router
 
 app = FastAPI()
 
@@ -42,8 +43,15 @@ app.include_router(
 
 app.include_router(
     conversation_router,
+    tags=["convo"]
 )
 
 app.include_router(
-    message_router
+    message_router,
+    tags=["Messages"]
+)
+
+app.include_router(
+    tag_router,
+    tags=["tag"]
 )

@@ -9,6 +9,7 @@ from src.db.base import get_session
 from src.db.models import Media, Post
 from sqlmodel import select
 import uuid
+import traceback
 
 post_router = APIRouter()
 
@@ -43,6 +44,7 @@ async def create_post(post: PostCreate,db: AsyncSession = Depends(get_session),c
         }
     except SQLAlchemyError:
         await db.rollback()
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail="Failed to create post")
 
 

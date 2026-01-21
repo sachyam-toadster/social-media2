@@ -10,10 +10,11 @@ from datetime import datetime, timedelta
 from src.config import settings
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import HTTPException
-from src.db.redis import add_jti_to_blocklist
+from src.db.redis import add_jti_to_blocklist, store_refresh_token, delete_refresh_token
 from src.mail import mail, create_message
 from src.auth.schemas import EmailModel, PasswordResetRequestModel, PasswordResetConfirmModel
 from src.config import settings as Config
+from src.celery_tasks import send_email
 
 auth_router = APIRouter()
 user_service = UserService()
@@ -47,11 +48,7 @@ async def create_user_account(
     <p>Please click this <a href="{link}">link</a> to verify your email</p>
     """
 
-    message = create_message(
-        recipients=[email], subject="Verify your email", body=html_message
-    )
-
-    await mail.send_message(message)
+    send_email.delay(recipients=[email], subject="Verify your email", body=html_message)
 
     return {
         "message": "Account Created! Check email to verify your account",
@@ -84,7 +81,9 @@ async def login_users(
                 expiry=timedelta(days=settings.REFRESH_TOKEN_EXPIRY),
             )
 
-            return JSONResponse(
+            await store_refresh_token(str(user.id), refresh_token)
+
+            response = JSONResponse(
                 content={
                     "message": "Login successful",
                     "access_token": access_token,
@@ -92,6 +91,14 @@ async def login_users(
                     "user": {"email": user.email, "uid": str(user.id)},
                 }
             )
+            response.set_cookie(
+                key="refresh_token",
+                value=refresh_token,
+                httponly=True,
+                secure=True,
+                samesite="strict"
+            )
+            return response
 
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN, detail="Invalid Email Or Password"
@@ -105,12 +112,18 @@ async def revoke_token(token_details:dict=Depends(AccessTokenBearer())):
 
     await add_jti_to_blocklist(jti)
 
-    return JSONResponse(
+    user_id = token_details["user_uid"]
+    await delete_refresh_token(user_id)
+
+    response = JSONResponse(
         content={
             "message":"Logged Out Successfully"
         },
         status_code=status.HTTP_200_OK
     )
+    response.delete_cookie("refresh_token")
+    return response
+
 
 @auth_router.get("/refresh_token")
 async def get_new_access_token(token_details: dict = Depends(RefreshTokenBearer())):
@@ -144,9 +157,7 @@ async def password_reset_request(email_data: PasswordResetRequestModel):
     """
     subject = "Reset Your Password"
 
-    message = create_message(recipients=[email], subject=subject, body=html_message)
-
-    await mail.send_message(message)
+    send_email.delay(recipients=[email], subject=subject, body=html_message)
     return JSONResponse(
         content={
             "message": "Please check your email for instructions to reset your password",
@@ -226,8 +237,7 @@ async def send_mail(emails: EmailModel):
     html = "<h1>Welcome to the app</h1>"
     subject = "Welcome to our app"
 
-    message = create_message(recipients=emails, subject=subject, body=html)
-    await mail.send_message(message)
+    send_email.delay(recipients=emails, subject=subject, body=html)
 
     return {"message": "Email sent successfully"}
 

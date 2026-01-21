@@ -3,7 +3,7 @@ from sqlmodel import select
 import uuid
 from src.db.Enums import LikeTarget
 from src.db.base import get_session
-from  src.db.models import User,Like
+from  src.db.models import User,Like, Comment, Post
 from src.auth.dependency import get_current_user
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -17,7 +17,18 @@ async def like_unlike(
     target_id: uuid.UUID,
     db: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
-):
+):  
+    if target_type == LikeTarget.POST:
+        target = await db.get(Post, target_id)
+        if not target:
+            raise HTTPException(status_code=404, detail="Post not found")
+    elif target_type == LikeTarget.COMMENT:
+        target = await db.get(Comment, target_id)
+        if not target:
+            raise HTTPException(status_code=404, detail="Comment not found")
+    else:
+        raise HTTPException(status_code=400, detail="Invalid target type")
+
     statement = select(Like).where(
         Like.user_id == current_user.id,
         Like.target_id == target_id,
@@ -52,6 +63,17 @@ async def get_likes_count(
     target_id: uuid.UUID,
     db: AsyncSession = Depends(get_session),
 ):
+    if target_type == LikeTarget.POST:
+        target = await db.get(Post, target_id)
+        if not target:
+            raise HTTPException(status_code=404, detail="Post not found")
+    elif target_type == LikeTarget.COMMENT:
+        target = await db.get(Comment, target_id)
+        if not target:
+            raise HTTPException(status_code=404, detail="Comment not found")
+    else:
+        raise HTTPException(status_code=400, detail="Invalid target type")
+
     statement = select(Like).where(
         Like.target_id == target_id,
         Like.target_type == target_type
@@ -68,6 +90,17 @@ async def is_liked(
     db: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
+    if target_type == LikeTarget.POST:
+        target = await db.get(Post, target_id)
+        if not target:
+            raise HTTPException(status_code=404, detail="Post not found")
+    elif target_type == LikeTarget.COMMENT:
+        target = await db.get(Comment, target_id)
+        if not target:
+            raise HTTPException(status_code=404, detail="Comment not found")
+    else:
+        raise HTTPException(status_code=400, detail="Invalid target type")
+    
     statement = select(Like).where(
         Like.user_id == current_user.id,
         Like.target_id == target_id,
