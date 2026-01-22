@@ -232,3 +232,39 @@ class Media_User_tag(SQLModel, table=True):
     created_at: datetime = Field(sa_column=Column(DateTime(timezone=True),server_default=func.now(),nullable=False,))
     updated_at: datetime = Field(sa_column=Column(DateTime(timezone=True), server_default=func.now(), nullable=False))
     
+class Story(SQLModel, table=True):
+    __tablename__="stories"
+
+    id: uuid.UUID = Field(
+        sa_column=Column(
+            pg.UUID,
+            primary_key=True,
+            default=uuid.uuid4,
+            nullable=False,
+        )
+    )
+
+    user_id: uuid.UUID = Field(foreign_key="user_accounts.id",nullable=False)
+    media_url: str = Field(nullable=False)
+    media_type: str = Field(nullable=False)
+    created_at: datetime = Field(sa_column=Column(DateTime(timezone=True),server_default=func.now(),nullable=False,))
+    expires_at: datetime = Field(nullable=False)
+
+class StoryView(SQLModel, table=True):
+    __tablename__="story_views"
+    
+    id: uuid.UUID = Field(
+        sa_column=Column(
+            pg.UUID,
+            primary_key=True,
+            default=uuid.uuid4,
+            nullable=False
+        )
+    )
+
+    viewer_id: uuid.UUID = Field(foreign_key="user_accounts.id",nullable=False)
+    story_id: uuid.UUID = Field(foreign_key="stories.id", nullable=False)
+    viewed_at: datetime = Field(sa_column=Column(DateTime(timezone=True),server_default=func.now()))
+    __table_args__ = (
+        UniqueConstraint("story_id", "viewer_id"),
+    )

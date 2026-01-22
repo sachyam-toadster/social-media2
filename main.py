@@ -7,6 +7,7 @@ from src.likes.routes import like_router
 from src.conversations.routes import conversation_router
 from src.messages.routes import message_router
 from src.tag.routes import tag_router
+from src.stories.routes import stories_router
 
 app = FastAPI()
 
@@ -54,4 +55,9 @@ app.include_router(
 app.include_router(
     tag_router,
     tags=["tag"]
+)
+
+app.include_router(
+    stories_router,
+    tags=["story"]
 )
