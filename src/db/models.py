@@ -159,6 +159,7 @@ class Conversation(SQLModel, table=True):
     )
 
     is_group: bool = Field(nullable=False, default=False)
+    created_by: uuid.UUID = Field(foreign_key="user_accounts.id",nullable=False,)
     created_at: datetime = Field(sa_column=Column(DateTime(timezone=True), server_default=func.now()))
     last_message_at: datetime | None = Field(sa_column=Column(DateTime(timezone=True)))
     members: list["ConversationMember"] = Relationship(back_populates="conversation")
@@ -267,4 +268,25 @@ class StoryView(SQLModel, table=True):
     viewed_at: datetime = Field(sa_column=Column(DateTime(timezone=True),server_default=func.now()))
     __table_args__ = (
         UniqueConstraint("story_id", "viewer_id"),
+    )
+
+class Block(SQLModel, table=True):
+    __tablename__="blocks"
+
+    id:uuid.UUID = Field(
+        sa_column=Column(
+            pg.UUID,
+            primary_key=True,
+            default=uuid.uuid4,
+            nullable=False
+        )
+    )
+
+    blocker_id: uuid.UUID = Field(foreign_key="user_accounts.id",nullable=False)
+    blocked_id: uuid.UUID = Field(foreign_key="user_accounts.id",nullable=False)
+    created_at: datetime = Field(sa_column=Column(DateTime(timezone=True),server_default=func.now(),nullable=False,))
+    updated_at: datetime = Field(sa_column=Column(DateTime(timezone=True), server_default=func.now(), nullable=False))
+    
+    __table_args__=(
+        UniqueConstraint("blocker_id","blocked_id"),
     )

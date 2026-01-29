@@ -1,11 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session, select
+from sqlalchemy import and_, or_
 import uuid
+from src.block.service import comment_guard
 from src.db.base import get_session
 from .schema import CommentCreate
 from .models import Comment
 from src.auth.dependency import get_current_user
-from src.db.models import User
+from src.db.models import User, Block, Post
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 
@@ -13,8 +15,8 @@ comment_router = APIRouter()
 
 
 @comment_router.post("/posts/{post_id}/comments")
-async def create_comment(post_id: uuid.UUID,payload: CommentCreate,db: AsyncSession = Depends(get_session),current_user: User = Depends(get_current_user),
-):
+async def create_comment(post_id: uuid.UUID,payload: CommentCreate,db: AsyncSession = Depends(get_session),current_user: User = Depends(get_current_user),  post: Post = Depends(comment_guard),):
+
     parent_id = payload.parent_id
 
     if parent_id is not None:
@@ -39,18 +41,20 @@ async def create_comment(post_id: uuid.UUID,payload: CommentCreate,db: AsyncSess
     await db.refresh(comment)
     return comment
 
+
 @comment_router.get("/posts/{post_id}/comments")
-async def get_comments(post_id: uuid.UUID, db: AsyncSession = Depends(get_session)):
+async def get_comments(post: Post = Depends(comment_guard), current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_session)):
     statement = (select(Comment).where(
-    Comment.post_id == post_id,
+    Comment.post_id == post.id,
     Comment.parent_comment_id.is_(None)
     ))
 
     result = await db.exec(statement)
     return result.all()
 
+
 @comment_router.get("/comments/{comment_id}/replies")
-async def get_replies(comment_id: uuid.UUID, db: AsyncSession = Depends(get_session)):
+async def get_replies(comment_id: uuid.UUID, post: Post = Depends(comment_guard), current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_session)):
     statement = select(Comment).where(
         Comment.parent_comment_id == comment_id
     ).order_by(Comment.created_at.asc())
@@ -58,8 +62,9 @@ async def get_replies(comment_id: uuid.UUID, db: AsyncSession = Depends(get_sess
     result = await db.exec(statement)
     return result.all()
 
+
 @comment_router.delete("/comments/{comment_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_comment(comment_id: uuid.UUID,db: Session = Depends(get_session),current_user: User = Depends(get_current_user),):
+async def delete_comment(comment_id: uuid.UUID, post: Post = Depends(comment_guard), current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_session),):
     result = await db.execute(
         select(Comment).where(Comment.id == comment_id)
     )

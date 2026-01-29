@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import select
 import uuid
+from src.block.service import like_guard
 from src.db.Enums import LikeTarget
 from src.db.base import get_session
 from  src.db.models import User,Like, Comment, Post
@@ -12,12 +13,7 @@ like_router = APIRouter()
 
 
 @like_router.post("/likes/{target_type}/{target_id}")
-async def like_unlike(
-    target_type: LikeTarget,
-    target_id: uuid.UUID,
-    db: AsyncSession = Depends(get_session),
-    current_user: User = Depends(get_current_user),
-):  
+async def like_unlike(target_type: LikeTarget,target_id: uuid.UUID, _: object = Depends(like_guard),db: AsyncSession = Depends(get_session),current_user: User = Depends(get_current_user),  ):  
     if target_type == LikeTarget.POST:
         target = await db.get(Post, target_id)
         if not target:
@@ -84,12 +80,7 @@ async def get_likes_count(
 
 
 @like_router.get("/likes/{target_type}/{target_id}/is-liked")
-async def is_liked(
-    target_type: LikeTarget,
-    target_id: uuid.UUID,
-    db: AsyncSession = Depends(get_session),
-    current_user: User = Depends(get_current_user),
-):
+async def is_liked(target_type: LikeTarget,target_id: uuid.UUID,_: object = Depends(like_guard),db: AsyncSession = Depends(get_session),current_user: User = Depends(get_current_user),):
     if target_type == LikeTarget.POST:
         target = await db.get(Post, target_id)
         if not target:

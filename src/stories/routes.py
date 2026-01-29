@@ -6,7 +6,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from src.auth.dependency import get_current_user
 from .schema import StoryCreate, StoryRead
 from src.db.base import get_session
-from src.db.models import Story, StoryView, User
+from src.db.models import Story, StoryView, User, Follow
 from sqlmodel import select
 from .schema import StoryRead,StoryCreate, StoryViewerOut
 import uuid
@@ -44,13 +44,24 @@ async def get_stories(
 
     now = datetime.utcnow()
 
-    # Await db.exec() because it's async
+    following_subquery = (
+        select(Follow.following_id)
+        .where(Follow.follower_id == current_user.id)
+    )
+
     result = await db.exec(
         select(Story)
-        .where(Story.expires_at > now)
+        .where(
+            Story.expires_at > now,
+            (
+                (Story.user_id == current_user.id) |
+                (Story.user_id.in_(following_subquery))
+            )
+        )
         .order_by(Story.created_at.desc())
     )
-    stories = result.all()  # now this works
+
+    stories = result.all()
 
     return stories
 
@@ -69,6 +80,23 @@ async def view_story(
 
     if story.expires_at < datetime.utcnow():
         raise HTTPException(status_code=400, detail="Story has expired")
+    
+    if story.user_id != current_user.id:
+
+        result = await db.exec(
+            select(Follow).where(
+                Follow.follower_id == current_user.id,
+                Follow.following_id == story.user_id
+            )
+        )
+
+        follow = result.first()
+
+        if not follow:
+            raise HTTPException(
+                status_code=403,
+                detail="You are not allowed to view this story"
+            )
 
     result = await db.exec(
         select(StoryView).where(

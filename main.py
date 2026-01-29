@@ -8,6 +8,7 @@ from src.conversations.routes import conversation_router
 from src.messages.routes import message_router
 from src.tag.routes import tag_router
 from src.stories.routes import stories_router
+from src.block.routes import block_router
 
 app = FastAPI()
 
@@ -60,4 +61,9 @@ app.include_router(
 app.include_router(
     stories_router,
     tags=["story"]
+)
+
+app.include_router(
+    block_router,
+    tags=["block"]
 )

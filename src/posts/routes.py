@@ -4,10 +4,11 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlalchemy.exc import SQLAlchemyError
 from src.auth.dependency import get_current_user
+from src.block.service import feed_block_filter
 from .schema import PostCreate, PostRead
 from src.db.base import get_session
-from src.db.models import Media, Post
-from sqlmodel import select
+from src.db.models import Block, Media, Post, User
+from sqlmodel import and_, or_, select
 import uuid
 import traceback
 
@@ -49,39 +50,66 @@ async def create_post(post: PostCreate,db: AsyncSession = Depends(get_session),c
 
 
 @post_router.get("/get-all-posts")
-async def get_posts(db: AsyncSession = Depends(get_session)):
-    statement = select(Post)
-    result = await db.exec(statement)
-    posts = result.all()
-    return posts
+async def get_posts(db: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user),blocked_ids=Depends(feed_block_filter)):
+    stmt = select(Post)
+
+    if blocked_ids:
+        stmt = stmt.where(Post.user_id.not_in(blocked_ids))
+
+    stmt = stmt.order_by(Post.created_at.desc())
+
+    result = await db.exec(stmt)
+
+    return result.all()
 
 @post_router.get("/get-post/{post_id}")
-async def get_post(post_id: str, db: AsyncSession = Depends(get_session)):
+async def get_post(post_id: uuid.UUID, db: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user),blocked_ids=Depends(feed_block_filter)):
     statement = select(Post).where(Post.id == post_id)
+
+    if blocked_ids:
+        statement = statement.where(Post.user_id.not_in(blocked_ids))
     result = await db.exec(statement)
     post = result.first()
+
     if not post:
-        raise HTTPException(status_code=404, detail="Post not found")
+        raise HTTPException(
+            status_code=404,
+            detail="Block ho "
+        )
+
+    # 2. 🚨 Block check (viewer <-> owner)
+    
+
     return post
 
 @post_router.delete("/delete-post/{post_id}")
-async def delete_post(post_id: str, db: AsyncSession = Depends(get_session)):
+async def delete_post(post_id: str, db: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
     statement = select(Post).where(Post.id == post_id)
     result = await db.exec(statement)
     post = result.first()
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
+    if post.user_id != current_user.id:
+        raise HTTPException(
+            status_code=403,
+            detail="You are not the owner of this post"
+        )
     await db.delete(post)
     await db.commit()
     return {"msg": f"Post {post_id} deleted successfully."}
 
 @post_router.patch("/update-post/{post_id}" )
-async def update_post(post_id: uuid.UUID, post_update: Post, db: AsyncSession = Depends(get_session)):
+async def update_post(post_id: uuid.UUID, post_update: Post, db: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
     result = await db.execute(select(Post).where(Post.id == post_id))
     post = result.scalar_one_or_none()
     if not Post:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
 
+    if post.user_id != current_user.id:
+        raise HTTPException(
+            status_code=403,
+            detail="You are not the owner of this post"
+        )
     post.caption = post_update.caption
     post.is_reel = post_update.is_reel
     post.updated_at = datetime.now()

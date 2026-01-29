@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field, EmailStr
 from typing import List
+from uuid import UUID
 
 
 class UserCreateModel(BaseModel):
@@ -14,6 +15,7 @@ class UserLoginModel(BaseModel):
     password: str
 
 class UserProfileModel(BaseModel):
+    id: UUID
     first_name: str | None
     last_name: str | None
     username: str
