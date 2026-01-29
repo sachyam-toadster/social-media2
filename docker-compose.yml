@@ -1,0 +1,49 @@
+version: "3.9"
+
+services:
+
+  api:
+    build: .
+    container_name: social_api
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - .:/app
+    restart: always
+
+  db:
+    image: postgres:15
+    container_name: social_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: socialdb
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: always
+
+  redis:
+    image: redis:7
+    container_name: social_redis
+    restart: always
+
+  celery_worker:
+    build: .
+    container_name: social_celery
+    command: celery -A src.celery_tasks worker --loglevel=info
+    env_file:
+      - .env
+    depends_on:
+      - api
+      - redis
+      - db
+    restart: always
+
+
+volumes:
+  postgres_data:
