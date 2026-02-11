@@ -16,14 +16,20 @@ import uuid
 
 follow_router = APIRouter()
 
-@follow_router.post("/users/{user_id}/follow",status_code=201,)
-async def follow_user(user_id: uuid.UUID, _: bool = Depends(interaction_guard), current_user: dict = Depends(get_current_user), session: AsyncSession = Depends(get_session),):
-    if user_id == current_user.id:
+@follow_router.post("/users/{user_name}/follow",status_code=201,)
+async def follow_user(user_name: str, _: bool = Depends(interaction_guard), current_user: User = Depends(get_current_user), session: AsyncSession = Depends(get_session),):
+    if user_name == current_user.username:
         raise HTTPException(400, "You cannot follow yourself")
+    
+    stmt = select(User).where(User.username == user_name)
+    target_user = await session.scalar(stmt)
+
+    if not target_user:
+        raise HTTPException(404, "User not found")
 
     stmt = select(Follow).where(
         Follow.follower_id == current_user.id,
-        Follow.following_id == user_id,
+        Follow.following_id == target_user.id,
     )
     existing = await session.scalar(stmt)
 
@@ -31,8 +37,8 @@ async def follow_user(user_id: uuid.UUID, _: bool = Depends(interaction_guard), 
         raise HTTPException(409, "Already following this user")
 
     follow = Follow(
-        follower_id=current_user.id,
-        following_id=user_id,
+        follower_=current_user.id,
+        following_id=target_user.id,
     )
 
     session.add(follow)
@@ -41,8 +47,8 @@ async def follow_user(user_id: uuid.UUID, _: bool = Depends(interaction_guard), 
     return {"message": "User followed successfully"}
 
 
-@follow_router.delete("/users/{user_id}/unfollow", status_code=200)
-async def unfollow_user(user_id: uuid.UUID,  _: bool = Depends(interaction_guard), current_user: dict = Depends(get_current_user), session: AsyncSession = Depends(get_session),):
+@follow_router.delete("/users/{user_name}/unfollow", status_code=200)
+async def unfollow_user(user_name: str,  _: bool = Depends(interaction_guard), current_user: dict = Depends(get_current_user), session: AsyncSession = Depends(get_session),):
     stmt = select(Follow).where(
         Follow.follower_id == current_user.id,
         Follow.following_id == user_id,

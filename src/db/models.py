@@ -2,7 +2,7 @@ from datetime import datetime
 import uuid
 from typing import List, Optional
 from sqlmodel import SQLModel, Field, Relationship, PrimaryKeyConstraint
-from sqlalchemy import Column, DateTime, func, UniqueConstraint, Boolean
+from sqlalchemy import Column, DateTime, func, UniqueConstraint, Boolean,ForeignKey
 import sqlalchemy.dialects.postgresql as pg
 from .Enums import LikeTarget, MessageType
 
@@ -52,7 +52,7 @@ class Post(SQLModel, table=True):
     )
 
     caption: str
-    user_id: uuid.UUID = Field(foreign_key="user_accounts.id", nullable=False)
+    user_id: uuid.UUID = Field(sa_column=Column(pg.UUID(as_uuid=True),ForeignKey("user_accounts.id", ondelete="CASCADE"), nullable=False))
     user: User = Relationship(back_populates="posts")
     is_reel:  bool = Field(sa_column=Column(pg.BOOLEAN, server_default="false"))
     created_at: datetime = Field(sa_column=Column(DateTime(timezone=True), server_default=func.now(), nullable=False))
@@ -76,7 +76,7 @@ class Media(SQLModel, table=True):
     media_url: str
     media_order: int = Field(sa_column=Column(pg.INTEGER, nullable=False))
     media_type: str = Field(sa_column=Column(pg.VARCHAR, nullable=False))
-    post_id: uuid.UUID = Field(foreign_key="posts.id", nullable=False, ondelete="CASCADE")
+    post_id: uuid.UUID = Field(sa_column=Column(pg.UUID(as_uuid=True),ForeignKey("posts.id", ondelete="CASCADE"),nullable=False,))
     created_at: datetime = Field(sa_column=Column(DateTime(timezone=True), server_default=func.now(), nullable=False))
     updated_at: datetime = Field(sa_column=Column(pg.TIMESTAMP, default=datetime.now)) 
     post: Optional["Post"] = Relationship(back_populates="media")
@@ -94,8 +94,8 @@ class Follow(SQLModel, table=True):
         )
     )
 
-    follower_id: uuid.UUID = Field(foreign_key="user_accounts.id", nullable=False)
-    following_id: uuid.UUID = Field(foreign_key="user_accounts.id", nullable=False)
+    follower_id: uuid.UUID = Field(sa_column=Column(pg.UUID(as_uuid=True),ForeignKey("user_accounts.id", ondelete="CASCADE"), nullable=False))
+    following_id: uuid.UUID = Field(sa_column=Column(pg.UUID(as_uuid=True),ForeignKey("user_accounts.id", ondelete="CASCADE"), nullable=False))
     created_at: datetime = Field(sa_column=Column(DateTime(timezone=True), server_default=func.now()))
     updated_at: datetime = Field(sa_column=Column(DateTime(timezone=True), server_default=func.now(), nullable=False))
 
@@ -115,8 +115,8 @@ class Comment(SQLModel, table=True):
         )
     )
 
-    post_id: uuid.UUID = Field(foreign_key="posts.id", ondelete="CASCADE")
-    user_id: uuid.UUID = Field(foreign_key="user_accounts.id")
+    post_id: uuid.UUID = Field(sa_column=Column(pg.UUID(as_uuid=True),ForeignKey("posts.id", ondelete="CASCADE"), nullable=False))
+    user_id: uuid.UUID = Field(sa_column=Column(pg.UUID(as_uuid=True),ForeignKey("user_accounts.id", ondelete="CASCADE"), nullable=False))
     parent_comment_id: uuid.UUID | None = Field(default=None, foreign_key="comments.id")
     content: str
     created_at: datetime = Field(sa_column=Column(DateTime(timezone=True), server_default=func.now()))
@@ -135,7 +135,7 @@ class Like(SQLModel, table=True):
         )
     )
 
-    user_id: uuid.UUID = Field(foreign_key="user_accounts.id", nullable=False)
+    user_id: uuid.UUID = Field(sa_column=Column(pg.UUID(as_uuid=True),ForeignKey("user_accounts.id", ondelete="CASCADE"), nullable=False))
     target_id: uuid.UUID = Field(nullable=False )
     target_type: LikeTarget = Field(sa_column=Column(pg.ENUM(LikeTarget, name="like_target_enum"), nullable=False))
 
@@ -159,7 +159,7 @@ class Conversation(SQLModel, table=True):
     )
 
     is_group: bool = Field(nullable=False, default=False)
-    created_by: uuid.UUID = Field(foreign_key="user_accounts.id",nullable=False,)
+    created_by: uuid.UUID = Field(sa_column=Column(pg.UUID(as_uuid=True),ForeignKey("user_accounts.id", ondelete="CASCADE"), nullable=False))
     created_at: datetime = Field(sa_column=Column(DateTime(timezone=True), server_default=func.now()))
     last_message_at: datetime | None = Field(sa_column=Column(DateTime(timezone=True)))
     members: list["ConversationMember"] = Relationship(back_populates="conversation")
@@ -185,8 +185,8 @@ class ConversationMember(SQLModel, table=True):
         )
     )
 
-    conversation_id: uuid.UUID = Field(foreign_key="conversations.id",nullable=False,)
-    user_id: uuid.UUID = Field(foreign_key="user_accounts.id",nullable=False,)
+    conversation_id: uuid.UUID = Field(sa_column=Column(pg.UUID(as_uuid=True),ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False))
+    user_id: uuid.UUID = Field(sa_column=Column(pg.UUID(as_uuid=True),ForeignKey("user_accounts.id", ondelete="CASCADE"), nullable=False))
     joined_at: datetime = Field(sa_column=Column( DateTime(timezone=True), server_default=func.now(), nullable=False,))
 
     conversation: "Conversation" = Relationship(back_populates="members")
@@ -205,8 +205,8 @@ class Message(SQLModel, table=True):
         )
     )
 
-    conversation_id: uuid.UUID = Field(foreign_key="conversations.id",nullable=False,)
-    sender_id: uuid.UUID = Field(foreign_key="user_accounts.id",nullable=False,)
+    conversation_id: uuid.UUID = Field(sa_column=Column(pg.UUID(as_uuid=True),ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False))
+    sender_id: uuid.UUID = Field(sa_column=Column(pg.UUID(as_uuid=True),ForeignKey("user_accounts.id", ondelete="CASCADE"), nullable=False))
     content: str | None = Field(default=None)
     media_url: str | None = Field(default=None)
     message_type: MessageType = Field(sa_column=Column(pg.ENUM(MessageType, name="message_type_enum"),nullable=False,))
@@ -227,9 +227,9 @@ class Media_User_tag(SQLModel, table=True):
         )
     )
     
-    tagged_user_id: uuid.UUID = Field(foreign_key="user_accounts.id", nullable=False,)
-    tagged_by_user: uuid.UUID = Field(foreign_key = "user_accounts.id", nullable=False)
-    media_id: uuid.UUID = Field(foreign_key="media.id", nullable=False)
+    tagged_user_id: uuid.UUID = Field(sa_column=Column(pg.UUID(as_uuid=True),ForeignKey("user_accounts.id", ondelete="CASCADE"), nullable=False))
+    tagged_by_user: uuid.UUID = Field(sa_column=Column(pg.UUID(as_uuid=True),ForeignKey("user_accounts.id", ondelete="CASCADE"), nullable=False))
+    media_id: uuid.UUID = Field(sa_column=Column(pg.UUID(as_uuid=True),ForeignKey("media.id", ondelete="CASCADE"), nullable=False))
     created_at: datetime = Field(sa_column=Column(DateTime(timezone=True),server_default=func.now(),nullable=False,))
     updated_at: datetime = Field(sa_column=Column(DateTime(timezone=True), server_default=func.now(), nullable=False))
     
@@ -245,7 +245,7 @@ class Story(SQLModel, table=True):
         )
     )
 
-    user_id: uuid.UUID = Field(foreign_key="user_accounts.id",nullable=False)
+    user_id: uuid.UUID = Field(sa_column=Column(pg.UUID(as_uuid=True),ForeignKey("user_accounts.id", ondelete="CASCADE"), nullable=False))
     media_url: str = Field(nullable=False)
     media_type: str = Field(nullable=False)
     created_at: datetime = Field(sa_column=Column(DateTime(timezone=True),server_default=func.now(),nullable=False,))
@@ -263,8 +263,8 @@ class StoryView(SQLModel, table=True):
         )
     )
 
-    viewer_id: uuid.UUID = Field(foreign_key="user_accounts.id",nullable=False)
-    story_id: uuid.UUID = Field(foreign_key="stories.id", nullable=False)
+    viewer_id: uuid.UUID = Field(sa_column=Column(pg.UUID(as_uuid=True),ForeignKey("user_accounts.id", ondelete="CASCADE"), nullable=False))
+    story_id: uuid.UUID = Field(sa_column=Column(pg.UUID(as_uuid=True),ForeignKey("stories.id", ondelete="CASCADE"), nullable=False))
     viewed_at: datetime = Field(sa_column=Column(DateTime(timezone=True),server_default=func.now()))
     __table_args__ = (
         UniqueConstraint("story_id", "viewer_id"),
@@ -282,8 +282,8 @@ class Block(SQLModel, table=True):
         )
     )
 
-    blocker_id: uuid.UUID = Field(foreign_key="user_accounts.id",nullable=False)
-    blocked_id: uuid.UUID = Field(foreign_key="user_accounts.id",nullable=False)
+    blocker_id: uuid.UUID = Field(sa_column=Column(pg.UUID(as_uuid=True),ForeignKey("user_accounts.id", ondelete="CASCADE"), nullable=False))
+    blocked_id: uuid.UUID = Field(sa_column=Column(pg.UUID(as_uuid=True),ForeignKey("user_accounts.id", ondelete="CASCADE"), nullable=False))
     created_at: datetime = Field(sa_column=Column(DateTime(timezone=True),server_default=func.now(),nullable=False,))
     updated_at: datetime = Field(sa_column=Column(DateTime(timezone=True), server_default=func.now(), nullable=False))
     

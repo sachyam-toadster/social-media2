@@ -1,8 +1,9 @@
 from unittest import result
 from fastapi import APIRouter, Body, Depends, HTTPException, status
 from sqlmodel import  func, select
+from sqlalchemy import distinct
 import uuid
-
+from src.block.service import _check_block_between_users
 from sqlmodel.ext.asyncio.session import AsyncSession
 from src.db.base import get_session
 from src.db.models import Conversation, ConversationMember
@@ -19,7 +20,14 @@ async def create_conversation(
     current_user: User = Depends(get_current_user),
 ):
     member_ids = member_ids or []
-    member_ids = list(set(member_ids) - {current_user.id})
+    member_ids = list(set(member_ids))
+
+    if current_user.id in member_ids:
+        raise HTTPException(
+            status_code=400,
+            detail="You cannot add yourself explicitly"
+        )
+    
 
     if not is_group:
         if len(member_ids) != 1:
@@ -48,6 +56,42 @@ async def create_conversation(
             status_code=404,
             detail=f"Users not found: {list(missing_ids)}"
         )
+    
+    for uid in member_ids:
+        blocked = await _check_block_between_users(
+            current_user.id,
+            uid,
+            Asyncsession,
+        )
+
+        if blocked:
+            raise HTTPException(
+                status_code=403,
+                detail="You cannot start a chat with this user"
+            )
+    
+    if not is_group:
+        other_user_id = member_ids[0]
+
+        stmt = (
+            select(Conversation)
+            .join(ConversationMember)
+            .where(
+                Conversation.is_group == False,
+                ConversationMember.user_id.in_(
+                    [current_user.id, other_user_id]
+                ),
+            )
+            .group_by(Conversation.id)
+            .having(func.count(distinct(ConversationMember.user_id)) == 2)
+        )
+
+        result = await Asyncsession.execute(stmt)
+
+        existing_chat = result.scalar_one_or_none()
+
+        if existing_chat:
+            return existing_chat
 
     conversation = Conversation(is_group=is_group, created_by=current_user.id)
     Asyncsession.add(conversation)
@@ -83,17 +127,17 @@ async def get_my_conversations(
     return result.all()
 
 
-@conversation_router.post("/{conversation_id}/members")
+@conversation_router.post("/{conversation_id}/members", description="Add member to group conversation")
 async def add_member(
     conversation_id: uuid.UUID,
     user_id: uuid.UUID,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
-    result = await session.exec(
+    conversation = await session.exec(
         select(Conversation).where(Conversation.id == conversation_id)
     )
-    conversation = result.first()
+    conversation = conversation.first()
 
     if not conversation:
         raise HTTPException(404, "Conversation not found")
@@ -108,6 +152,28 @@ async def add_member(
         raise HTTPException(
             status_code=403,
             detail="Only owner can add members"
+        )
+    
+    if user_id == current_user.id:
+        raise HTTPException(
+            status_code=400,
+            detail="You cannot add yourself"
+        )
+    
+    target_user = await session.get(User, user_id)
+    if not target_user:
+        raise HTTPException(404, "User not found")
+    
+    blocked = await _check_block_between_users(
+        current_user.id,
+        user_id,
+        session,
+    )
+
+    if blocked:
+        raise HTTPException(
+            status_code=403,
+            detail="You cannot add this user"
         )
 
     # Add member

@@ -4,10 +4,10 @@ from logging.config import fileConfig
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
-from src.db.models import User
 from alembic import context
 from sqlmodel import SQLModel
 from src.config import settings as Config
+from src.db.models import *
 
 
 database_url = Config.database_url

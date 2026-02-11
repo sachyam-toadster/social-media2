@@ -32,10 +32,16 @@ async def _check_block_between_users(
     return result.first() is not None
 
 async def interaction_guard(
-    user_id: uuid.UUID,
+    user_name: str,
     db: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
+    stmt = select(User.id).where(User.username == user_name)
+    user_id = await db.scalar(stmt)
+
+    if not user_id:
+        raise HTTPException(404, "User not found")
+
     blocked = await _check_block_between_users(
         current_user.id,
         user_id,

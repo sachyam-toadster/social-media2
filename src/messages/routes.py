@@ -3,6 +3,7 @@ from sqlmodel import Session, select
 import uuid
 from datetime import datetime
 
+from src.block.service import _check_block_between_users
 from src.db.base import get_session
 from src.db.models import Message, ConversationMember, Conversation
 from src.auth.dependency import get_current_user
@@ -19,6 +20,19 @@ async def send_message(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
+    
+    if not content and not media_url:
+        raise HTTPException(
+            status_code=400,
+            detail="Message must contain text or media"
+        )
+
+    # 2️⃣ Conversation exists
+    conversation = await session.get(Conversation, conversation_id)
+
+    if not conversation:
+        raise HTTPException(404, "Conversation not found")
+    
     # check membership  
     stmt = select(ConversationMember).where(
         ConversationMember.conversation_id == conversation_id,
@@ -30,13 +44,42 @@ async def send_message(
 
     if not member:
         raise HTTPException(status_code=403, detail="Not a conversation member")
+    
+    if not conversation.is_group:
+
+        stmt = select(ConversationMember.user_id).where(
+            ConversationMember.conversation_id == conversation_id,
+            ConversationMember.user_id != current_user.id,
+        )
+
+        result = await session.exec(stmt)
+        other_user_id = result.one()
+
+        blocked = await _check_block_between_users(
+            current_user.id,
+            other_user_id,
+            session,
+        )
+
+        if blocked:
+            raise HTTPException(
+                status_code=403,
+                detail="You cannot message this user"
+            )
+
+    if content and media_url:
+        msg_type = "mixed"
+    elif content:
+        msg_type = "text"
+    else:
+        msg_type = "media"
 
     message = Message(
         conversation_id=conversation_id,
         sender_id=current_user.id,
         content=content,
         media_url=media_url,
-        message_type="text" if content else "media",
+        message_type=msg_type,
     )
 
     session.add(message)

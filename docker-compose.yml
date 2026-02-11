@@ -1,4 +1,4 @@
-version: "3.9"
+
 
 services:
 
@@ -10,8 +10,10 @@ services:
     env_file:
       - .env
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     volumes:
       - .:/app
     restart: always
@@ -26,11 +28,21 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      retries: 5
+      start_period: 5s
 
   redis:
     image: redis:7
     container_name: social_redis
     restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 5
+      start_period: 5s
 
   celery_worker:
     build: .

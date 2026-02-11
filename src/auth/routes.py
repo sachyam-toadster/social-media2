@@ -1,3 +1,5 @@
+import select
+from sqlalchemy import select
 from fastapi import APIRouter, status, Depends
 from src.auth.dependency import get_current_user, RoleChecker, RefreshTokenBearer, AccessTokenBearer
 from src.auth.schemas import PasswordResetConfirmModel, UserCreateModel, UserLoginModel, UserProfileModel
@@ -5,6 +7,8 @@ from src.auth.utils import verify_password
 from src.db.base import get_session
 from sqlmodel.ext.asyncio.session import AsyncSession
 from .service import UserService
+
+from src.db.models import User
 from .utils import create_access_token, create_url_safe_token , decode_url_safe_token, generate_password_hash
 from datetime import datetime, timedelta
 from src.config import settings
@@ -60,8 +64,7 @@ async def create_user_account(
 
 @auth_router.post("/login")
 async def login_users(
-    login_data: UserLoginModel, session: AsyncSession = Depends(get_session)
-):
+    login_data: UserLoginModel, session: AsyncSession = Depends(get_session)):
     email = login_data.email
     password = login_data.password
 
@@ -107,12 +110,12 @@ async def login_users(
 
 @auth_router.get('/logout')
 async def revoke_token(token_details:dict=Depends(AccessTokenBearer())):
-
+    print("TOKEN DETAILS:", token_details)
     jti = token_details['jti']
 
     await add_jti_to_blocklist(jti)
 
-    user_id = token_details["user_uid"]
+    user_id = token_details["user"]["user_uid"]
     await delete_refresh_token(user_id)
 
     response = JSONResponse(
@@ -144,8 +147,16 @@ async def get_current_user_profile(user=Depends(get_current_user),  _: bool = De
     
 
 @auth_router.post('/password-reset-request')
-async def password_reset_request(email_data: PasswordResetRequestModel):
+async def password_reset_request(email_data: PasswordResetRequestModel, session: AsyncSession = Depends(get_session)):
     email = email_data.email
+    user= await user_service.get_user_by_email(email, session)
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User with this email does not exist"
+        )
+
 
     token = create_url_safe_token({"email": email})
 
