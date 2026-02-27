@@ -7,16 +7,21 @@ on:
       - completed
 
 jobs:
-  build:
+  deploy:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: self-hosted
 
     steps:
       - name: Pull Docker Image
         run: docker pull sachyamk/social-media2:latest
 
-      - name: Delete existing containers
+      - name: Stop and remove old container
         run: docker rm -f social_api || true
 
       - name: Run Docker Container
         run: |
-          docker run -d --name social_api -p 8000:8000 sachyamk/social-media2:latest
+          docker run -d \
+            --name social_api \
+            -p 8000:8000 \
+            --restart always \
+            sachyamk/social-media2:latest
