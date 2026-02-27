@@ -1,0 +1,23 @@
+name: CI Pipeline
+
+on:
+  workflow_run:
+    workflows: ["CI Pipeline"]
+    types:
+      - completed
+
+jobs:
+  build:
+    runs-on: self-hosted
+
+    steps:
+      - name: Pull Docker Image
+        run: docker pull sachyamk/social-media2:latest
+
+      - name: Delete existing containers
+        run: |
+          docker rm -f social_api || true
+
+      - name: Run Docker Container
+        run: |
+          docker run -d --name social_api -p 8000:8000 sachyamk/social-media2:latest
