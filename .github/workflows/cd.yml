@@ -1,4 +1,4 @@
-name: CI Pipeline
+name: CD Pipeline
 
 on:
   workflow_run:
@@ -15,8 +15,7 @@ jobs:
         run: docker pull sachyamk/social-media2:latest
 
       - name: Delete existing containers
-        run: |
-          docker rm -f social_api || true
+        run: docker rm -f social_api || true
 
       - name: Run Docker Container
         run: |
